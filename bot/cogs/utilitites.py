@@ -45,6 +45,12 @@ class Utilities(Cog):
 
         message = self.to_codeblock(message)
         await ctx.send(message)
+        
+    @commands.command(aliases=['memcount'])
+    @commands.guild_only()
+    async def membercount(self, ctx: commands.Context):
+        """Gives the membercount of the guild"""
+        await ctx.send(embed=discord.Embed(title="Member Count", description=f"{ctx.guild.member_count}", color=discord.Color.green()).set_footer(text=f"{ctx.guild.name}", icon_url=ctx.guild.icon.url))
 
 async def setup(bot: StackBot) -> None:
     print(f'Loaded: Utilities')
