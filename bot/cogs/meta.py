@@ -23,21 +23,15 @@ class Meta(Cog):
 
     @property
     def db(self) -> AsyncIOMotorCollection:
-        return self.bot.db['TESTING']['1'] # change to ['stackoverflow']['meta']
+        return self.bot.db['stackoverflow']['main'] # change to ['stackoverflow']['meta']
 
     @property
     def user_db(self) -> AsyncIOMotorCollection:
-        return self.bot.db['TESTING']['user'] # change to ['stackoverflow']['users']
+        return self.bot.db['stackoverflow']['users'] # change to ['stackoverflow']['users']
 
     async def ensure_user_exists(self, user_id: int) -> None:
-
         """
         Ensure that a user exists in the database.
-
-        Parameters
-        ----------
-        user_id : int
-            The user's ID.
         """
         
         user = await self.user_db.find_one({'_id': user_id})
@@ -50,22 +44,14 @@ class Meta(Cog):
                 'questions_answered': [], 
             }
             await self.user_db.insert_one(payload)
-            return
+            return payload
 
         else:
             return user
 
     async def post_question(self, user_id: int, data: dict) -> None:
-
         """
-        Post a question.
-
-        Parameters
-        ----------
-        user_id : int
-            The user id of the user who asked the question.
-        data : dict
-            The data to be posted.
+        Posts a question.
         """
 
         user = await self.ensure_user_exists(user_id) # ensure the user exists
@@ -92,16 +78,8 @@ class Meta(Cog):
         return
 
     async def prepare_message(self, ctx: Context, data: dict) -> Embed:
-
         """
-        Prepare a message for embedding.
-
-        Parameters
-        ----------
-        ctx : Context
-            The context of the command.
-        data : dict
-            The data to be prepared.
+        Prepares a message for embedding.
         """
 
         embed = Embed(
@@ -114,9 +92,8 @@ class Meta(Cog):
 
     @command(name='ask')
     async def ask(self, ctx: Context) -> None:
-
         """
-        Ask a question.
+        Creates a question.
         """
         
         def check(message: Message) -> bool:
@@ -188,12 +165,7 @@ class Meta(Cog):
     async def prepare_question(self, question: dict) -> Embed:
 
         """
-        Prepare a question for embedding.
-        
-        Parameters
-        ----------
-        question : dict
-            The question to be prepared.
+        Prepares a question for embedding.
         """
 
         user = self.bot.get_user(question['user_id']) or await self.bot.get_user(question['user_id'])
@@ -222,29 +194,25 @@ class Meta(Cog):
         return embed
 
 
-    @command(name='view-question') 
+    @command(name='view-question', aliases=('question', 'view')) 
     async def view_question(self, ctx: Context, question_id: int) -> None:
-
         """
         View a question.
         """
 
         question = await self.db.find_one({'_id': question_id})
-
+        
         if question is None:
             return await ctx.send('Question not found.')
 
-
+        question['views'] += 1 
         view = QuestionView(self.db, question_id)
         embed = await self.prepare_question(question)
-
-        
 
         view.message = await ctx.send(embed=embed, view=view)
 
     @command(name='answer')
     async def answer(self, ctx: Context, question_id: int) -> None: # make question_id have a default value? button - select 25 latest
-
         """
         Answer a question.
         """
@@ -291,6 +259,24 @@ class Meta(Cog):
         await self.db.update_one({'_id': question_id}, {'$set': {'answers': question['answers']}})
 
         await ctx.send('Answer posted!')
+
+    @command(name='questions')
+    async def questions(self, ctx: Context, limit: int = 10):
+        """
+        View the latest questions.
+        """
+        
+        message = f'Latest Questions\n'
+
+        data = await self.db.find().to_list(10)
+
+        for index, result in enumerate(data):
+            if len(result['title']) > 50:
+                result['title'] = result['title'][:50] + f"..."
+
+            message += f"\n{index+1}. {result['title']} (ID: {result['_id']})"
+            
+        await ctx.send(f'```\n{message}\n```')
 
 
 async def setup(bot: StackBot) -> None:
